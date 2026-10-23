@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, CalendarDays, RefreshCw, RotateCcw } from 'lucide-react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
+import { AlertTriangle, ArrowRight, CalendarDays, RefreshCw, RotateCcw } from 'lucide-react'
 import { FilterPanel } from '@/components/filter-panel'
 import { PeriodPicker } from '@/components/period-picker'
 import { ProvinceList } from '@/components/province-list'
@@ -36,6 +36,7 @@ interface LeftRailProps {
   onResetFilters: () => void
   onProvinceSelect: (province: string | null) => void
   onDayChange: (day: string | null) => void
+  onOpenDate: () => void
 }
 
 export function LeftRail({
@@ -59,6 +60,7 @@ export function LeftRail({
   onToggleSatellite,
   onResetFilters,
   onProvinceSelect,
+  onOpenDate,
 }: LeftRailProps) {
   const [pageIndex, setPageIndex] = useState(0)
   const [direction, setDirection] = useState(1)
@@ -85,16 +87,54 @@ export function LeftRail({
       ? 'Pantau'
       : 'Saring'
 
+  const tabs = [
+    { label: 'Pantau', target: 0, active: page === 0 },
+    { label: 'Saring', target: 1, active: page === 1 },
+    { label: 'Wilayah', target: LEADING_PAGES, active: isProvincePage },
+  ]
+
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.altKey || event.ctrlKey || event.metaKey) return
+    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+    const target = event.target as HTMLElement
+    if (target.closest('input, textarea, select, [role="slider"], [contenteditable="true"]')) return
+    event.preventDefault()
+    if (event.key === 'ArrowLeft') goTo(page - 1)
+    else goTo(page + 1)
+  }
+
   return (
     <aside
       className={cn(
         'flex min-h-0 flex-col overflow-hidden border-r border-rule bg-paper',
         className,
       )}
+      onKeyDown={handleKeyDown}
     >
-      <div className="flex h-8 shrink-0 items-center justify-between border-b border-rule bg-paper-raised px-4">
-        <span className="micro-label text-ink-soft">Lembar pantau</span>
-        <span className="flex items-center gap-1.5 font-mono text-[7.5px] uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="flex h-8 shrink-0 items-center justify-between border-b border-rule bg-paper-raised pr-4">
+        <nav className="flex h-full items-stretch pl-2" aria-label="Bagian lembar pantau">
+          {tabs.map((tab) => (
+            <button
+              key={tab.label}
+              type="button"
+              onClick={() => {
+                if (tab.active) return
+                goTo(tab.target)
+              }}
+              aria-current={tab.active ? 'page' : undefined}
+              className={cn(
+                'relative flex items-center px-2 font-mono text-[8px] uppercase tracking-[0.12em] transition-colors',
+                tab.active ? 'text-ink' : 'text-muted-foreground hover:text-ink',
+              )}
+            >
+              {tab.label}
+              {tab.active ? (
+                <span className="absolute inset-x-2 bottom-0 h-[2px] bg-ember" aria-hidden="true" />
+              ) : null}
+            </button>
+          ))}
+        </nav>
+        <span className="flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
           <span className="h-1.5 w-1.5 bg-ember" />
           NRT · VIIRS
         </span>
@@ -168,9 +208,19 @@ export function LeftRail({
               ) : (
                 <>
                   <PeriodPicker value={filters.windowHours} onChange={onWindowChange} />
+                  <button
+                    type="button"
+                    onClick={onOpenDate}
+                    className="mt-2 hidden w-full items-center justify-between gap-2 border border-rule bg-paper-raised px-2 py-1.5 text-left transition-colors hover:border-ink hover:bg-sand/60 lg:flex"
+                  >
+                    <span className="flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.08em] text-ink-soft">
+                      <CalendarDays className="h-3 w-3" />
+                      Pilih tanggal di peta
+                    </span>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                  </button>
                   <p className="mt-2 font-mono text-[8px] uppercase leading-relaxed tracking-[0.05em] text-muted-foreground">
-                    Jendela deteksi berdasarkan jam sejak akuisisi satelit. Pilih tanggal pada peta
-                    untuk mode harian.
+                    Jendela bergulir dihitung sejak akuisisi satelit terakhir.
                   </p>
                 </>
               )}

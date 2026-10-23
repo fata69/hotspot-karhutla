@@ -2,6 +2,7 @@ import { ArrowUpRight, BookOpen, LoaderCircle, Table2 } from 'lucide-react'
 import { ConfidenceMark } from '@/components/confidence-mark'
 import { Button } from '@/components/ui/button'
 import {
+  formatCoordinatesCompact,
   formatDecimal,
   formatNumber,
   formatRelative,
@@ -32,6 +33,17 @@ export function HighlightsPanel({
   provinceScope,
   windowLabel,
 }: HighlightsPanelProps) {
+  const maxFrp = hotspots.reduce((max, hotspot) => Math.max(max, hotspot.frp), 0) || 1
+  const provinceFrequency = new Map<string, number>()
+  for (const hotspot of hotspots) {
+    provinceFrequency.set(hotspot.province, (provinceFrequency.get(hotspot.province) ?? 0) + 1)
+  }
+  const repeatedProvinces = new Set(
+    [...provinceFrequency.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([name]) => name),
+  )
+
   return (
     <div className="pb-5">
       <div className="border-b border-rule px-4 py-4">
@@ -91,6 +103,17 @@ export function HighlightsPanel({
                   <span className="mt-1 block font-mono text-[8px] uppercase tracking-[0.05em] text-muted-foreground">
                     {satelliteShort[hotspot.satellite]} · {formatWIBDate(hotspot.acqTime).replace('.', '')} ·{' '}
                     {formatWIBTime(hotspot.acqTime)}
+                  </span>
+                  {repeatedProvinces.has(hotspot.province) ? (
+                    <span className="mt-0.5 block font-mono text-[8px] tabular-nums tracking-[0.02em] text-muted-foreground/80">
+                      {formatCoordinatesCompact(hotspot.lat, hotspot.lon)}
+                    </span>
+                  ) : null}
+                  <span className="mt-1.5 block h-[2px] w-full bg-rule/40">
+                    <span
+                      className="block h-full bg-ember/65 transition-all group-hover:bg-ember"
+                      style={{ width: `${Math.max(3, (hotspot.frp / maxFrp) * 100)}%` }}
+                    />
                   </span>
                 </span>
                 <span className="flex shrink-0 items-start gap-0.5 text-right">

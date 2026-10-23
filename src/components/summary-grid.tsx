@@ -1,4 +1,4 @@
-import { formatCompact, formatNumber, formatRelative, formatWIBTime } from '@/lib/format'
+import { formatCompact, formatDecimal, formatNumber, formatRelative, formatWIBTime } from '@/lib/format'
 import type { SummaryStats } from '@/lib/stats'
 import { cn } from '@/lib/utils'
 
@@ -17,7 +17,7 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
   const empty = !loading && summary.total === 0
 
   return (
-    <div>
+    <div aria-live="polite">
       <div className="grid grid-cols-2 border-l border-t border-rule">
         <div className="min-h-[82px] border-b border-r border-rule p-2.5">
           <div className="micro-label text-muted-foreground">Titik panas</div>
@@ -34,7 +34,7 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
         </div>
 
         <div className="min-h-[82px] border-b border-r border-rule p-2.5">
-          <div className="micro-label text-muted-foreground">Akumulasi FRP</div>
+          <div className="micro-label text-muted-foreground">Total FRP</div>
           {loading ? (
             <ValueSkeleton />
           ) : (
@@ -46,7 +46,9 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
             </div>
           )}
           <div className="mt-1.5 font-mono text-[8px] uppercase tracking-[0.05em] text-muted-foreground">
-            Jumlah daya radiasi
+            {empty
+              ? 'Tidak ada deteksi'
+              : `${formatDecimal(summary.frpTotal / summary.total)} MW per titik`}
           </div>
         </div>
 

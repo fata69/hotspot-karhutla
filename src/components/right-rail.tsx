@@ -55,7 +55,7 @@ export function RightRail({
         <span className="micro-label text-ink-soft">
           {selected ? 'Lembar deteksi' : page === 0 ? 'Lembar sorotan' : 'Lembar catatan'}
         </span>
-        <span className="flex items-center gap-1.5 font-mono text-[7.5px] uppercase tracking-[0.12em] text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground">
           <span className="h-1.5 w-1.5 bg-ember" />
           {selected ? `Objek ${selected.id}` : page === 0 ? 'Editorial' : 'Batas data'}
         </span>

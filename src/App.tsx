@@ -69,6 +69,7 @@ export default function App() {
   const [highlightsOpen, setHighlightsOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [focusSignal, setFocusSignal] = useState(0)
+  const [dateSignal, setDateSignal] = useState(0)
   const isWide = useMediaQuery('(min-width: 1280px)')
 
   const query = useQuery({
@@ -107,7 +108,7 @@ export default function App() {
     () => computeTrend(scopedHotspots, filters.windowHours, data?.fetchedAt ?? Date.now(), selectedDay),
     [scopedHotspots, filters.windowHours, data?.fetchedAt, selectedDay],
   )
-  const strongest = useMemo(() => pickStrongest(scopedHotspots, 5), [scopedHotspots])
+  const strongest = useMemo(() => pickStrongest(scopedHotspots, 8), [scopedHotspots])
   const selected = useMemo(
     () => (selectedId === null ? null : scopedHotspots.find((hotspot) => hotspot.id === selectedId) ?? null),
     [scopedHotspots, selectedId],
@@ -244,6 +245,7 @@ export default function App() {
             onToggleSatellite={handleToggleSatellite}
             onResetFilters={handleResetFilters}
             onProvinceSelect={setProvinceScope}
+            onOpenDate={() => setDateSignal((value) => value + 1)}
           />
 
           <main className="relative order-1 h-[calc(100svh-4rem)] min-h-[420px] lg:order-none lg:h-auto lg:min-h-0">
@@ -253,13 +255,17 @@ export default function App() {
               activeProvince={activeProvince}
               selectedDay={selectedDay}
               periodLabel={periodLabel}
+              filters={filters}
+              isDefaultFilters={isDefaultFilters}
               loading={query.isFetching}
               error={errorMessage}
               focusSignal={focusSignal}
+              dateSignal={dateSignal}
               onSelect={handleSelect}
               onProvinceClick={toggleProvince}
               onClearSelection={handleClearSelection}
               onDayChange={handleDayChange}
+              onResetFilters={handleResetFilters}
               onRetry={() => {
                 void query.refetch()
               }}

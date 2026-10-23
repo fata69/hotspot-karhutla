@@ -3,6 +3,7 @@ import {
   Map as MapLibreMap,
   Popup,
   setWorkerUrl,
+  type ExpressionSpecification,
   type GeoJSONSource,
   type MapEventType,
   type RasterTileSource,
@@ -13,6 +14,7 @@ import {
   AlertTriangle,
   CalendarDays,
   Check,
+  Frame,
   Layers,
   LoaderCircle,
   Lock,
@@ -22,10 +24,12 @@ import {
   RefreshCw,
   RotateCcw,
   Satellite,
+  SlidersHorizontal,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   confidenceLabels,
@@ -40,7 +44,7 @@ import {
   satelliteShort,
 } from '@/lib/format'
 import { getProvinceBBox, PROVINCE_GEOJSON, PROVINCE_LABEL_POINTS } from '@/lib/provinces'
-import type { Hotspot } from '@/types'
+import { CONFIDENCE_META, type Hotspot, type HotspotFilters } from '@/types'
 import { cn } from '@/lib/utils'
 
 setWorkerUrl(maplibreWorkerUrl)
@@ -63,13 +67,17 @@ interface MapPaneProps {
   activeProvince: string | null
   selectedDay: string | null
   periodLabel: string
+  filters: HotspotFilters
+  isDefaultFilters: boolean
   loading: boolean
   error: string | null
   focusSignal: number
+  dateSignal: number
   onSelect: (hotspot: Hotspot) => void
   onProvinceClick: (province: string) => void
   onClearSelection: () => void
   onDayChange: (day: string | null) => void
+  onResetFilters: () => void
   onRetry: () => void
 }
 
@@ -84,8 +92,65 @@ function imageryDateKey(offsetDays: number): string {
   return formatUtcDateKey(Date.now() - offsetDays * 86_400_000)
 }
 
+const GIBS_TILE_ROOT =
+  'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default'
+
 function satelliteTiles(date: string): string {
-  return `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg`
+  return `${GIBS_TILE_ROOT}/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg`
+}
+
+function imageryTileUrls(date: string): string[] {
+  const zoom = 4
+  const urls: string[] = []
+  for (let x = 12; x <= 14; x += 1) {
+    for (let y = 7; y <= 8; y += 1) {
+      urls.push(`${GIBS_TILE_ROOT}/${date}/GoogleMapsCompatible_Level9/${zoom}/${y}/${x}.jpeg`)
+    }
+  }
+  return urls
+}
+
+function preloadImage(url: string, timeoutMs = 4500): Promise<void> {
+  return new Promise((resolve) => {
+    const image = new Image()
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      resolve()
+    }
+    const timer = window.setTimeout(finish, timeoutMs)
+    image.onload = finish
+    image.onerror = finish
+    image.src = url
+  })
+}
+
+function clusterCountLabel(): ExpressionSpecification {
+  const count: ExpressionSpecification = ['get', 'point_count']
+  const thousands: ExpressionSpecification = ['floor', ['/', count, 1000]]
+  const decimal: ExpressionSpecification = [
+    'floor',
+    ['*', 10, ['-', ['/', count, 1000], thousands]],
+  ]
+  return [
+    'case',
+    ['>=', count, 10000],
+    ['concat', ['to-string', ['round', ['/', count, 1000]]], ' rb'],
+    ['>=', count, 1000],
+    [
+      'concat',
+      ['to-string', thousands],
+      ['case', ['>', decimal, 0], ['concat', ',', ['to-string', decimal]], ''],
+      ' rb',
+    ],
+    ['to-string', count],
+  ]
+}
+
+function shortPeriod(hours: number): string {
+  return hours === 168 ? '7 hari' : `${hours} jam`
 }
 
 function popupNode(label: string, main: string, sub?: string): HTMLDivElement {
@@ -128,20 +193,21 @@ function fitScope(
   map.fitBounds(INDONESIA_BOUNDS, { padding: 28, duration })
 }
 
-function LegendContent({ basemap, imageryDate }: { basemap: Basemap; imageryDate: string }) {
+function LegendContent() {
+  const entries = [
+    CONFIDENCE_META.high,
+    CONFIDENCE_META.nominal,
+    CONFIDENCE_META.low,
+  ]
   return (
     <div className="space-y-2.5">
       <div>
         <div className="micro-label mb-1.5 text-muted-foreground">Keyakinan</div>
         <div className="space-y-1">
-          {[
-            ['Tinggi', '#b93a12'],
-            ['Nominal', '#d97732'],
-            ['Rendah', '#a98b48'],
-          ].map(([label, color]) => (
-            <div key={label} className="flex items-center gap-1.5">
-              <span className="h-2 w-2" style={{ backgroundColor: color }} />
-              <span className="text-[10px] leading-none text-ink-soft">{label}</span>
+          {entries.map((entry) => (
+            <div key={entry.label} className="flex items-center gap-1.5">
+              <span className="h-2 w-2" style={{ backgroundColor: entry.color }} />
+              <span className="text-[10px] leading-none text-ink-soft">{entry.label}</span>
             </div>
           ))}
         </div>
@@ -174,12 +240,6 @@ function LegendContent({ basemap, imageryDate }: { basemap: Basemap; imageryDate
           Angka dalam kotak adalah jumlah titik. Klik untuk memperbesar.
         </span>
       </div>
-
-      <div className="border-t border-rule pt-1.5 font-mono text-[7px] uppercase leading-relaxed tracking-[0.08em] text-muted-foreground">
-        {basemap === 'satellite'
-          ? `Citra NOAA-20 · ${formatImageryDateShort(imageryDate)} · GIBS`
-          : 'Peta dasar Esri · Light Gray Canvas'}
-      </div>
     </div>
   )
 }
@@ -190,25 +250,34 @@ export function MapPane({
   activeProvince,
   selectedDay,
   periodLabel,
+  filters,
+  isDefaultFilters,
   loading,
   error,
   focusSignal,
+  dateSignal,
   onSelect,
   onProvinceClick,
   onClearSelection,
   onDayChange,
+  onResetFilters,
   onRetry,
 }: MapPaneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const popupRef = useRef<Popup | null>(null)
   const hoverKeyRef = useRef<string | null>(null)
+  const hoverProvinceIdRef = useRef<string | number | null>(null)
   const coordRef = useRef<HTMLSpanElement | null>(null)
   const firstFitRef = useRef(true)
+  const appliedImageryDateRef = useRef<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const [basemap, setBasemap] = useState<Basemap>('satellite')
   const [dateOpen, setDateOpen] = useState(false)
   const [legendOpen, setLegendOpen] = useState(false)
+  const [controlsOpen, setControlsOpen] = useState(false)
+  const [datePending, setDatePending] = useState(false)
+  const [imageryLoading, setImageryLoading] = useState(false)
 
   const latestImageryDate = useMemo(() => imageryDateKey(1), [])
   const oldestImageryDate = useMemo(() => imageryDateKey(IMAGERY_DAYS), [])
@@ -226,6 +295,29 @@ export function MapPane({
     onClearSelection,
   })
   const provinceCountsRef = useRef<Map<string, number>>(new Map())
+
+  const filterContext = useMemo(() => {
+    const confidences = (['high', 'nominal', 'low'] as const).filter((confidence) =>
+      filters.confidences.includes(confidence),
+    )
+    const satellites = (['N20', 'N21', 'N'] as const).filter((satellite) =>
+      filters.satellites.includes(satellite),
+    )
+    return {
+      period: selectedDay
+        ? `Harian ${formatWibDayKeyShort(selectedDay)}`
+        : shortPeriod(filters.windowHours),
+      confidence:
+        confidences.length === 3
+          ? 'Semua keyakinan'
+          : confidences.map((confidence) => confidenceLabels[confidence]).join('+') ||
+            'Tanpa keyakinan',
+      satellite:
+        satellites.length === 3
+          ? 'Semua satelit'
+          : satellites.map((satellite) => satelliteShort[satellite]).join('+') || 'Tanpa satelit',
+    }
+  }, [filters, selectedDay])
 
   const hotspotById = useMemo(() => new Map(hotspots.map((hotspot) => [hotspot.id, hotspot])), [hotspots])
   const provinceCounts = useMemo(() => {
@@ -332,8 +424,23 @@ export function MapPane({
     })
     popupRef.current = popup
 
+    const setProvinceHover = (id: string | number | null) => {
+      if (hoverProvinceIdRef.current === id) return
+      if (hoverProvinceIdRef.current !== null) {
+        map.setFeatureState(
+          { source: 'provinces', id: hoverProvinceIdRef.current },
+          { hover: false },
+        )
+      }
+      if (id !== null) {
+        map.setFeatureState({ source: 'provinces', id }, { hover: true })
+      }
+      hoverProvinceIdRef.current = id
+    }
+
     const clearHover = () => {
       hoverKeyRef.current = null
+      setProvinceHover(null)
       popup.remove()
       map.getCanvas().style.cursor = ''
     }
@@ -357,8 +464,9 @@ export function MapPane({
       const current = callbacksRef.current
 
       if (cluster) {
+        setProvinceHover(null)
         const count = Number(cluster.properties?.point_count ?? 0)
-        const key = `cluster-${count}`
+        const key = `cluster-${cluster.properties?.cluster_id ?? count}`
         map.getCanvas().style.cursor = 'pointer'
         if (hoverKeyRef.current === key) return
         hoverKeyRef.current = key
@@ -372,9 +480,13 @@ export function MapPane({
       }
 
       if (point) {
+        setProvinceHover(null)
         const id = Number(point.properties?.id)
         const hotspot = current.hotspotById.get(id)
-        if (!hotspot) return
+        if (!hotspot) {
+          clearHover()
+          return
+        }
         const key = `point-${id}`
         map.getCanvas().style.cursor = 'pointer'
         if (hoverKeyRef.current === key) return
@@ -393,6 +505,7 @@ export function MapPane({
       }
 
       if (province) {
+        setProvinceHover(province.id ?? null)
         const name = String(province.properties?.PROVINSI ?? '')
         const count = provinceCountsRef.current.get(name) ?? 0
         const key = `province-${name}`
@@ -471,6 +584,7 @@ export function MapPane({
         tileSize: 256,
         maxzoom: 9,
       })
+      appliedImageryDateRef.current = imageryDate
       map.addLayer({
         id: 'base-satellite',
         type: 'raster',
@@ -512,12 +626,26 @@ export function MapPane({
       map.addSource('provinces', {
         type: 'geojson',
         data: PROVINCE_GEOJSON as unknown as FeatureCollection,
+        generateId: true,
       })
       map.addLayer({
         id: 'province-fill',
         type: 'fill',
         source: 'provinces',
-        paint: { 'fill-color': '#191811', 'fill-opacity': 0.045 },
+        paint: {
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            '#c24318',
+            '#191811',
+          ],
+          'fill-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            0.085,
+            0.045,
+          ],
+        },
       })
       map.addSource('province-active', {
         type: 'geojson',
@@ -533,13 +661,13 @@ export function MapPane({
         id: 'province-line-casing',
         type: 'line',
         source: 'provinces',
-        paint: { 'line-color': '#f5f0e4', 'line-width': 2.4, 'line-opacity': 0.28 },
+        paint: { 'line-color': '#f5f0e4', 'line-width': 2.4, 'line-opacity': 0.32 },
       })
       map.addLayer({
         id: 'province-line',
         type: 'line',
         source: 'provinces',
-        paint: { 'line-color': '#191811', 'line-width': 0.85, 'line-opacity': 0.5 },
+        paint: { 'line-color': '#191811', 'line-width': 0.9, 'line-opacity': 0.58 },
       })
       map.addLayer({
         id: 'province-active-line',
@@ -613,13 +741,18 @@ export function MapPane({
         filter: ['has', 'point_count'],
         layout: {
           'icon-image': 'cluster-stamp',
-          'icon-size': ['step', ['get', 'point_count'], 1, 100, 1.15, 1000, 1.3],
+          'icon-size': ['step', ['get', 'point_count'], 1.2, 100, 1.4, 1000, 1.65],
           'icon-allow-overlap': true,
-          'text-field': ['get', 'point_count_abbreviated'],
+          'text-field': clusterCountLabel(),
           'text-font': ['Noto Sans Regular'],
-          'text-size': ['step', ['get', 'point_count'], 9, 100, 10, 1000, 11],
+          'text-size': ['step', ['get', 'point_count'], 9.5, 100, 10.5, 1000, 11.5],
+          'text-allow-overlap': true,
         },
-        paint: { 'text-color': '#f5f0e4' },
+        paint: {
+          'text-color': '#f5f0e4',
+          'text-halo-color': '#191811',
+          'text-halo-width': 0.8,
+        },
       })
       map.addLayer({
         id: 'hotspots',
@@ -631,10 +764,10 @@ export function MapPane({
             'match',
             ['get', 'confidence'],
             'high',
-            '#c24318',
+            CONFIDENCE_META.high.color,
             'nominal',
-            '#d97732',
-            '#a98b48',
+            CONFIDENCE_META.nominal.color,
+            CONFIDENCE_META.low.color,
           ],
           'circle-radius': [
             'interpolate',
@@ -701,7 +834,10 @@ export function MapPane({
       mapRef.current = null
       popupRef.current = null
       hoverKeyRef.current = null
+      hoverProvinceIdRef.current = null
+      appliedImageryDateRef.current = null
       setMapReady(false)
+      setImageryLoading(false)
     }
     // The map instance is created once; live data flows through sources in effects below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -769,9 +905,51 @@ export function MapPane({
 
   useEffect(() => {
     if (!mapReady) return
+    if (appliedImageryDateRef.current === imageryDate) {
+      setImageryLoading(false)
+      return
+    }
     const source = mapRef.current?.getSource('base-satellite') as RasterTileSource | undefined
-    source?.setTiles([satelliteTiles(imageryDate)])
-  }, [mapReady, imageryDate])
+    if (!source) return
+
+    if (basemap !== 'satellite') {
+      source.setTiles([satelliteTiles(imageryDate)])
+      appliedImageryDateRef.current = imageryDate
+      return
+    }
+
+    let cancelled = false
+    setImageryLoading(true)
+    void Promise.all(imageryTileUrls(imageryDate).map((url) => preloadImage(url))).then(() => {
+      if (cancelled) return
+      source.setTiles([satelliteTiles(imageryDate)])
+      appliedImageryDateRef.current = imageryDate
+      setImageryLoading(false)
+    })
+    return () => {
+      cancelled = true
+      setImageryLoading(false)
+    }
+  }, [mapReady, imageryDate, basemap])
+
+  useEffect(() => {
+    if (dateSignal === 0) return
+    setDateOpen(true)
+  }, [dateSignal])
+
+  useEffect(() => {
+    if (!datePending) return
+    if (controlsOpen) {
+      setDatePending(false)
+      return
+    }
+    // Let the sheet close animation finish before opening the anchored popover.
+    const timeout = window.setTimeout(() => {
+      setDatePending(false)
+      setDateOpen(true)
+    }, 320)
+    return () => window.clearTimeout(timeout)
+  }, [datePending, controlsOpen])
 
   useEffect(() => {
     if (!mapReady || !selected) return
@@ -830,7 +1008,10 @@ export function MapPane({
               {activeProvince ?? 'Indonesia'}
             </div>
           </div>
-          <span className="hidden shrink-0 border border-rule px-1.5 py-0.5 font-mono text-[8px] tabular-nums text-ink-soft sm:inline">
+          <span
+            aria-live="polite"
+            className="hidden shrink-0 border border-rule px-1.5 py-0.5 font-mono text-[8px] tabular-nums text-ink-soft sm:inline"
+          >
             {formatNumber(hotspots.length)} titik
           </span>
           <Tooltip>
@@ -853,7 +1034,7 @@ export function MapPane({
                 variant="outline"
                 size="sm"
                 className={cn(
-                  'h-7 gap-1.5 px-1.5 font-mono text-[8px] uppercase tracking-[0.06em]',
+                  'h-8 gap-1.5 px-2 font-mono text-[8px] uppercase tracking-[0.06em] sm:h-7 sm:px-1.5',
                   selectedDay &&
                     'border-ember bg-ember/[0.07] text-ember hover:bg-ember/[0.12] hover:text-ember',
                 )}
@@ -942,7 +1123,7 @@ export function MapPane({
             </PopoverContent>
           </Popover>
 
-          <div className="flex overflow-hidden border border-rule" role="group" aria-label="Jenis peta dasar">
+          <div className="hidden overflow-hidden border border-rule md:flex" role="group" aria-label="Jenis peta dasar">
             <button
               type="button"
               onClick={() => setBasemap('satellite')}
@@ -955,7 +1136,7 @@ export function MapPane({
               )}
             >
               <Satellite className="h-3 w-3" />
-              <span className="hidden md:inline">Satelit</span>
+              <span className="hidden lg:inline">Satelit</span>
             </button>
             <button
               type="button"
@@ -967,7 +1148,7 @@ export function MapPane({
               )}
             >
               <MapIcon className="h-3 w-3" />
-              <span className="hidden md:inline">Peta</span>
+              <span className="hidden lg:inline">Peta</span>
             </button>
           </div>
 
@@ -980,7 +1161,7 @@ export function MapPane({
                 aria-pressed={legendOpen}
                 aria-label={legendOpen ? 'Sembunyikan legenda peta' : 'Tampilkan legenda peta'}
                 className={cn(
-                  'h-7 gap-1.5 px-1.5 font-mono text-[8px] uppercase tracking-[0.05em]',
+                  'hidden h-7 gap-1.5 px-1.5 font-mono text-[8px] uppercase tracking-[0.05em] md:inline-flex',
                   legendOpen && 'border-ink bg-ink text-paper hover:bg-ink hover:text-paper',
                 )}
               >
@@ -998,16 +1179,50 @@ export function MapPane({
               <Button
                 variant="outline"
                 size="icon"
-                className="h-7 w-7"
+                className="hidden h-7 w-7 md:inline-flex"
                 onClick={resetView}
-                aria-label="Pusatkan ulang peta"
+                aria-label="Reset tampilan peta"
               >
-                <RotateCcw className="h-3 w-3" />
+                <Frame className="h-3 w-3" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Pusatkan ulang peta</TooltipContent>
+            <TooltipContent side="bottom">Reset tampilan peta</TooltipContent>
           </Tooltip>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 md:hidden"
+            onClick={() => setControlsOpen(true)}
+            aria-label="Buka pengaturan tampilan peta"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </Button>
         </div>
+      </div>
+
+      <div className="flex h-7 shrink-0 items-center gap-1.5 overflow-hidden border-b border-rule bg-paper-raised px-2.5 font-mono text-[7.5px] uppercase tracking-[0.05em] text-muted-foreground sm:px-3">
+        <span className="micro-label shrink-0 text-ember">Aktif</span>
+        <span className="shrink-0 text-ink-soft">{filterContext.period}</span>
+        <span className="shrink-0 text-rule-strong">·</span>
+        <span className="shrink-0 text-ink-soft">≥{filters.minFrp} MW</span>
+        <span className="hidden shrink-0 text-rule-strong sm:inline">·</span>
+        <span className="hidden truncate text-ink-soft sm:inline">{filterContext.confidence}</span>
+        <span className="hidden shrink-0 text-rule-strong lg:inline">·</span>
+        <span className="hidden shrink-0 text-ink-soft lg:inline">{filterContext.satellite}</span>
+        {!isDefaultFilters ? (
+          <button
+            type="button"
+            onClick={onResetFilters}
+            className="ml-auto shrink-0 border border-ember/40 px-1.5 py-0.5 text-[7.5px] uppercase tracking-[0.08em] text-ember transition-colors hover:border-ember hover:bg-ember hover:text-paper"
+          >
+            Reset filter
+          </button>
+        ) : (
+          <span className="ml-auto hidden shrink-0 text-[7px] text-muted-foreground/70 md:inline">
+            Filter standar
+          </span>
+        )}
       </div>
 
       {error && hotspots.length > 0 ? (
@@ -1037,6 +1252,19 @@ export function MapPane({
         <div className="pointer-events-none absolute inset-0 z-[1] shadow-[inset_0_0_0_1px_rgba(25,24,17,0.16)]" />
 
         {loading ? <div className="is-loading-stripe absolute inset-x-0 top-0 z-20 h-[2px]" /> : null}
+
+        {imageryLoading && basemap === 'satellite' ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute left-1/2 top-2.5 z-20 flex -translate-x-1/2 items-center gap-1.5 border border-ink bg-paper-raised px-2 py-1 hard-shadow"
+          >
+            <LoaderCircle className="h-3 w-3 animate-spin text-ember" />
+            <span className="whitespace-nowrap font-mono text-[8px] uppercase tracking-[0.08em] text-ink-soft">
+              Memuat citra {formatImageryDateShort(imageryDate)}
+            </span>
+          </div>
+        ) : null}
 
         {activeProvince ? (
           <div className="absolute left-2.5 top-2.5 z-10 flex max-w-[calc(100%-1.25rem)] items-center gap-2 border border-ink bg-paper-raised px-2.5 py-1.5 hard-shadow">
@@ -1078,9 +1306,30 @@ export function MapPane({
               </div>
             </div>
             <div className="p-2.5">
-              <LegendContent basemap={basemap} imageryDate={imageryDate} />
+              <LegendContent />
             </div>
           </div>
+        ) : null}
+
+        {!legendOpen ? (
+          <button
+            type="button"
+            onClick={() => setLegendOpen(true)}
+            aria-label="Buka legenda peta"
+            className="absolute bottom-2.5 left-2.5 z-10 hidden items-center gap-2 border border-ink bg-paper-raised px-2 py-1.5 hard-shadow transition-colors hover:bg-sand sm:flex"
+          >
+            <span className="micro-label text-muted-foreground">Keyakinan</span>
+            {Object.values(CONFIDENCE_META).map((entry) => (
+              <span
+                key={entry.label}
+                className="flex items-center gap-1 font-mono text-[7.5px] uppercase tracking-[0.04em] text-ink-soft"
+              >
+                <span className="h-1.5 w-1.5" style={{ backgroundColor: entry.color }} />
+                {entry.label}
+              </span>
+            ))}
+            <Layers className="h-3 w-3 text-muted-foreground" />
+          </button>
         ) : null}
 
         <div className="absolute bottom-2.5 right-2.5 z-10 hidden flex-col overflow-hidden border border-ink bg-paper-raised hard-shadow md:flex">
@@ -1169,46 +1418,213 @@ export function MapPane({
         ) : null}
       </div>
 
-      <div className="flex h-7 shrink-0 items-center gap-1.5 border-t border-rule bg-paper-raised px-2.5 font-mono text-[7px] uppercase tracking-[0.05em] text-muted-foreground sm:px-3">
-        <span className="hidden sm:inline">Data</span>
-        <a
-          href="https://firms.modaps.eosdis.nasa.gov/"
-          target="_blank"
-          rel="noreferrer"
-          className="transition-colors hover:text-ember hover:underline"
-        >
-          NASA FIRMS
-        </a>
-        <span>·</span>
-        <a
-          href="https://nasa.github.io/GIBS/"
-          target="_blank"
-          rel="noreferrer"
-          className="transition-colors hover:text-ember hover:underline"
-        >
-          NASA GIBS
-        </a>
-        {basemap === 'light' ? (
-          <>
-            <span>·</span>
-            <a
-              href="https://www.esri.com/en-us/legal/copyright-trademarks"
-              target="_blank"
-              rel="noreferrer"
-              className="transition-colors hover:text-ember hover:underline"
-            >
-              ESRI · OSM
-            </a>
-          </>
-        ) : null}
-        <span className="hidden lg:inline">· Batas provinsi: Deny Herianto</span>
-        <span className="ml-auto hidden tabular-nums md:inline">
+      <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-hidden border-t border-rule bg-paper-raised px-2.5 font-mono text-[7.5px] uppercase tracking-[0.05em] text-muted-foreground sm:px-3">
+        <span className="flex shrink-0 items-center gap-1 sm:hidden">
+          <a
+            href="https://firms.modaps.eosdis.nasa.gov/"
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors hover:text-ember hover:underline"
+          >
+            FIRMS
+          </a>
+          <span>·</span>
+          <a
+            href="https://nasa.github.io/GIBS/"
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors hover:text-ember hover:underline"
+          >
+            GIBS
+          </a>
+        </span>
+        <span className="hidden shrink-0 items-center gap-1 sm:flex">
+          <span>Data</span>
+          <a
+            href="https://firms.modaps.eosdis.nasa.gov/"
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors hover:text-ember hover:underline"
+          >
+            NASA FIRMS
+          </a>
+          <span>·</span>
+          <a
+            href="https://nasa.github.io/GIBS/"
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors hover:text-ember hover:underline"
+          >
+            NASA GIBS
+          </a>
+          {basemap === 'light' ? (
+            <>
+              <span>·</span>
+              <a
+                href="https://www.esri.com/en-us/legal/copyright-trademarks"
+                target="_blank"
+                rel="noreferrer"
+                className="transition-colors hover:text-ember hover:underline"
+              >
+                ESRI · OSM
+              </a>
+            </>
+          ) : null}
+        </span>
+        <span className="hidden xl:inline">· Batas provinsi: Deny Herianto</span>
+        <span className="ml-auto flex shrink-0 items-center gap-1 border border-rule px-1.5 py-0.5 text-ink-soft">
+          {basemap === 'satellite' ? (
+            <>
+              {imageryLoading ? (
+                <LoaderCircle className="h-2.5 w-2.5 animate-spin text-ember" />
+              ) : (
+                <Satellite className="h-2.5 w-2.5" />
+              )}
+              <span className="tabular-nums">Citra {formatImageryDateShort(imageryDate)}</span>
+              <span className="hidden sm:inline">· NOAA-20</span>
+            </>
+          ) : (
+            <>
+              <MapIcon className="h-2.5 w-2.5" />
+              <span>Peta dasar · Esri</span>
+            </>
+          )}
+        </span>
+        <span className="hidden shrink-0 tabular-nums md:inline">
           <span ref={coordRef}>Kursor —</span>
         </span>
-        <span className="ml-auto uppercase tracking-[0.08em] text-muted-foreground/80 md:hidden">
-          Gulir untuk ringkasan
-        </span>
       </div>
+
+      <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[78svh] gap-0 overflow-y-auto border-t-2 border-ember p-0"
+        >
+          <div className="flex h-12 items-center border-b border-rule bg-paper-raised pl-4 pr-14">
+            <SheetTitle className="micro-label text-ink">Tampilan peta</SheetTitle>
+          </div>
+          <SheetDescription className="sr-only">
+            Atur peta dasar, legenda, tanggal citra, dan posisi peta.
+          </SheetDescription>
+          <div className="space-y-4 p-4">
+            <div>
+              <div className="micro-label mb-2 text-muted-foreground">Peta dasar</div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setBasemap('satellite')}
+                  aria-pressed={basemap === 'satellite'}
+                  className={cn(
+                    'flex items-center gap-2 border px-2.5 py-2 text-left transition-colors',
+                    basemap === 'satellite'
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-rule text-ink-soft hover:border-ink hover:bg-sand/60',
+                  )}
+                >
+                  <Satellite className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-medium leading-tight">Satelit</span>
+                    <span
+                      className={cn(
+                        'mt-0.5 block font-mono text-[7.5px] uppercase tracking-[0.06em]',
+                        basemap === 'satellite' ? 'text-paper/55' : 'text-muted-foreground',
+                      )}
+                    >
+                      Citra NOAA-20
+                    </span>
+                  </span>
+                  {basemap === 'satellite' ? <Check className="h-3 w-3 shrink-0" /> : null}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBasemap('light')}
+                  aria-pressed={basemap === 'light'}
+                  className={cn(
+                    'flex items-center gap-2 border px-2.5 py-2 text-left transition-colors',
+                    basemap === 'light'
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-rule text-ink-soft hover:border-ink hover:bg-sand/60',
+                  )}
+                >
+                  <MapIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-medium leading-tight">Peta</span>
+                    <span
+                      className={cn(
+                        'mt-0.5 block font-mono text-[7.5px] uppercase tracking-[0.06em]',
+                        basemap === 'light' ? 'text-paper/55' : 'text-muted-foreground',
+                      )}
+                    >
+                      Esri Light Gray
+                    </span>
+                  </span>
+                  {basemap === 'light' ? <Check className="h-3 w-3 shrink-0" /> : null}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-rule pt-3">
+              <div>
+                <div className="text-[11px] font-medium text-ink">Legenda peta</div>
+                <div className="mt-0.5 text-[9.5px] text-muted-foreground">
+                  Keyakinan & intensitas FRP
+                </div>
+              </div>
+              <Button
+                variant={legendOpen ? 'default' : 'outline'}
+                size="sm"
+                className="font-mono text-[8px] uppercase tracking-[0.08em]"
+                onClick={() => setLegendOpen((value) => !value)}
+              >
+                {legendOpen ? 'Sembunyikan' : 'Tampilkan'}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-rule pt-3">
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-ink">Posisi peta</div>
+                <div className="mt-0.5 truncate text-[9.5px] text-muted-foreground">
+                  {activeProvince ?? 'Indonesia'}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 font-mono text-[8px] uppercase tracking-[0.08em]"
+                onClick={resetView}
+              >
+                <Frame className="h-3 w-3" />
+                Reset
+              </Button>
+            </div>
+
+            <div className="border-t border-rule pt-3">
+              <div className="micro-label mb-2 text-muted-foreground">Tanggal data & citra</div>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                Citra {formatImageryDateShort(imageryDate)} · NOAA-20. Tanggal data mengikuti pilihan
+                harian pada peta.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 w-full justify-between font-mono text-[8px] uppercase tracking-[0.08em]"
+                onClick={() => {
+                  setControlsOpen(false)
+                  setDatePending(true)
+                }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3 w-3" />
+                  Pilih tanggal
+                </span>
+                <span className="text-muted-foreground">
+                  {selectedDay ? formatWibDayKeyShort(selectedDay) : 'Periode aktif'}
+                </span>
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -51,11 +51,11 @@ export function Header({
         <span className={cn('h-2 w-2 shrink-0 bg-ember', loading && 'animate-pulse')} />
         <div className="min-w-0">
           <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-paper/85">
-            {historical ? 'Arsip harian · NASA FIRMS' : 'Data langsung · NASA FIRMS'}
+            {historical ? 'Arsip harian · NASA FIRMS' : 'Data terkini · NASA FIRMS'}
           </div>
           <div className="mt-0.5 whitespace-nowrap font-mono text-[8.5px] uppercase tracking-[0.09em] text-paper/40">
-            {fetchedAt ? `Sinkron ${formatWIBTime(fetchedAt)}` : 'Menghubungkan arsip satelit'}
-            {latestAcq ? ` · Deteksi terbaru ${formatWIBTime(latestAcq)}` : ''}
+            {fetchedAt ? `Dimuat ${formatWIBTime(fetchedAt)}` : 'Menghubungkan arsip satelit'}
+            {latestAcq ? ` · Akuisisi ${formatWIBTime(latestAcq)} · ${formatRelative(latestAcq)}` : ''}
           </div>
         </div>
       </div>
@@ -111,7 +111,7 @@ export function Header({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {loading ? 'Memuat data satelit' : latestAcq ? `Deteksi terbaru ${formatRelative(latestAcq)}` : 'Muat ulang data'}
+            {loading ? 'Memuat data satelit' : latestAcq ? `Akuisisi terakhir ${formatRelative(latestAcq)}` : 'Muat ulang data'}
           </TooltipContent>
         </Tooltip>
       </div>
