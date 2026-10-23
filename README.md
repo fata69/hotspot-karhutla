@@ -2,6 +2,8 @@
 
 Pemantauan titik panas karhutla Indonesia dari data satelit VIIRS NASA FIRMS, dengan citra harian NASA GIBS. Antarmuka editorial bergaya buletin posko lapangan: peta sebagai fokus, rel informasi berhalaman tanpa scrollbar vertikal, dan bahasa Indonesia.
 
+**Live:** [posko-bara.vercel.app](https://posko-bara.vercel.app)
+
 ## Fitur
 
 - Peta sebaran titik panas terkunci di wilayah Indonesia — bisa zoom, tidak bisa digeser keluar scope.
