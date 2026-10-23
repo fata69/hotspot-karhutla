@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/sheet'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { fetchHotspots } from '@/lib/firms'
+import { formatWibDayKeyShort } from '@/lib/format'
 import {
   computeProvinceStats,
   computeSummary,
@@ -60,6 +61,7 @@ function readError(error: unknown): string | null {
 
 export default function App() {
   const [filters, setFilters] = useState<HotspotFilters>(DEFAULT_FILTERS)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [activeProvince, setActiveProvince] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [logOpen, setLogOpen] = useState(false)
@@ -72,12 +74,13 @@ export default function App() {
   const query = useQuery({
     queryKey: [
       'hotspots',
+      selectedDay ?? 'period',
       filters.windowHours,
       filters.minFrp,
       [...filters.confidences].sort().join(','),
       [...filters.satellites].sort().join(','),
     ],
-    queryFn: ({ signal }) => fetchHotspots(filters, signal),
+    queryFn: ({ signal }) => fetchHotspots(filters, selectedDay, signal),
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
     retry: 1,
@@ -101,8 +104,8 @@ export default function App() {
   const summary = useMemo(() => computeSummary(scopedHotspots), [scopedHotspots])
   const provinceStats = useMemo(() => computeProvinceStats(hotspots), [hotspots])
   const trend = useMemo(
-    () => computeTrend(scopedHotspots, filters.windowHours, data?.fetchedAt ?? Date.now()),
-    [scopedHotspots, filters.windowHours, data?.fetchedAt],
+    () => computeTrend(scopedHotspots, filters.windowHours, data?.fetchedAt ?? Date.now(), selectedDay),
+    [scopedHotspots, filters.windowHours, data?.fetchedAt, selectedDay],
   )
   const strongest = useMemo(() => pickStrongest(scopedHotspots, 5), [scopedHotspots])
   const selected = useMemo(
@@ -114,9 +117,10 @@ export default function App() {
     [scopedHotspots, selected],
   )
 
-  const windowLabel =
+  const periodLabel =
     TIME_WINDOWS.find((item) => item.value === filters.windowHours)?.label ??
     `${filters.windowHours} jam terakhir`
+  const windowLabel = selectedDay ? `Data ${formatWibDayKeyShort(selectedDay)} WIB` : periodLabel
 
   const isDefaultFilters =
     filters.windowHours === DEFAULT_FILTERS.windowHours &&
@@ -168,6 +172,11 @@ export default function App() {
     setDetailOpen(false)
   }
 
+  function handleDayChange(day: string | null) {
+    setSelectedDay(day)
+    setSelectedId(null)
+  }
+
   function handleWindowChange(value: TimeWindow) {
     setFilters((previous) => ({ ...previous, windowHours: value }))
   }
@@ -202,6 +211,7 @@ export default function App() {
           latestAcq={data?.latestAcq ?? null}
           fetchedAt={data?.fetchedAt ?? null}
           loading={query.isFetching}
+          historical={selectedDay !== null}
           onRefresh={() => {
             void query.refetch()
           }}
@@ -213,6 +223,7 @@ export default function App() {
         <div className="flex flex-1 flex-col lg:min-h-0 lg:grid min-[1024px]:grid-cols-[264px_minmax(0,1fr)] min-[1280px]:grid-cols-[264px_minmax(0,1fr)_288px] min-[1440px]:grid-cols-[280px_minmax(0,1fr)_300px]">
           <LeftRail
             filters={filters}
+            selectedDay={selectedDay}
             summary={summary}
             trend={trend}
             provinceStats={provinceStats}
@@ -226,6 +237,7 @@ export default function App() {
               void query.refetch()
             }}
             className="order-2 border-r-0 lg:order-none lg:border-r"
+            onDayChange={handleDayChange}
             onWindowChange={handleWindowChange}
             onMinFrpChange={handleMinFrpChange}
             onToggleConfidence={handleToggleConfidence}
@@ -239,12 +251,15 @@ export default function App() {
               hotspots={scopedHotspots}
               selected={selected}
               activeProvince={activeProvince}
+              selectedDay={selectedDay}
+              periodLabel={periodLabel}
               loading={query.isFetching}
               error={errorMessage}
               focusSignal={focusSignal}
               onSelect={handleSelect}
               onProvinceClick={toggleProvince}
               onClearSelection={handleClearSelection}
+              onDayChange={handleDayChange}
               onRetry={() => {
                 void query.refetch()
               }}
@@ -277,6 +292,8 @@ export default function App() {
           onOpenChange={setLogOpen}
           hotspots={scopedHotspots}
           filters={filters}
+          selectedDay={selectedDay}
+          windowLabel={windowLabel}
           provinceScope={activeProvince}
           truncated={data?.truncated ?? false}
           loading={query.isFetching}

@@ -23,11 +23,12 @@ import {
   formatCoordinates,
   formatDecimal,
   formatNumber,
+  formatWibDayKeyShort,
   formatWIBDate,
   formatWIBTime,
   satelliteShort,
 } from '@/lib/format'
-import { TIME_WINDOWS, type Hotspot, type HotspotFilters } from '@/types'
+import type { Hotspot, HotspotFilters } from '@/types'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 100
@@ -40,6 +41,8 @@ interface LogSheetProps {
   onOpenChange: (open: boolean) => void
   hotspots: Hotspot[]
   filters: HotspotFilters
+  selectedDay: string | null
+  windowLabel: string
   provinceScope: string | null
   truncated: boolean
   loading: boolean
@@ -99,6 +102,8 @@ export function LogSheet({
   onOpenChange,
   hotspots,
   filters,
+  selectedDay,
+  windowLabel,
   provinceScope,
   truncated,
   loading,
@@ -109,9 +114,6 @@ export function LogSheet({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
-
-  const windowMeta = TIME_WINDOWS.find((item) => item.value === filters.windowHours)
-  const windowLabel = windowMeta?.label ?? `${filters.windowHours} jam`
 
   useEffect(() => {
     setPage(0)
@@ -182,7 +184,11 @@ export function LogSheet({
         <div className="shrink-0 border-b border-rule bg-paper-raised px-4 py-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center border border-rule bg-paper px-1.5 py-0.5 font-mono text-[7.5px] uppercase tracking-[0.06em] text-ink-soft">
-              {filters.windowHours === 168 ? '7 hari' : `${filters.windowHours} jam`}
+              {selectedDay
+                ? `${formatWibDayKeyShort(selectedDay)} · WIB`
+                : filters.windowHours === 168
+                  ? '7 hari'
+                  : `${filters.windowHours} jam`}
             </span>
             <span className="inline-flex items-center border border-rule bg-paper px-1.5 py-0.5 font-mono text-[7.5px] uppercase tracking-[0.06em] text-ink-soft">
               FRP ≥ {filters.minFrp} MW
@@ -244,7 +250,9 @@ export function LogSheet({
               <p className="mt-1.5 max-w-[280px] text-[11px] leading-relaxed text-muted-foreground">
                 {search.trim()
                   ? 'Pencarian provinsi tidak cocok dengan filter aktif.'
-                  : 'Longgarkan filter atau periode untuk melihat lebih banyak deteksi.'}
+                  : selectedDay
+                    ? 'Coba tanggal lain, longgarkan filter, atau kembali ke periode aktif.'
+                    : 'Longgarkan filter atau periode untuk melihat lebih banyak deteksi.'}
               </p>
             </div>
           ) : (

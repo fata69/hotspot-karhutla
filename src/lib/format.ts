@@ -57,6 +57,12 @@ const wibDayLong = new Intl.DateTimeFormat('id-ID', {
   month: 'long',
 })
 
+const wibDayKeyShort = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  day: '2-digit',
+  month: 'short',
+})
+
 const utcTime = new Intl.DateTimeFormat('id-ID', {
   timeZone: 'UTC',
   hour: '2-digit',
@@ -81,6 +87,19 @@ export function formatWIBDateShort(time: number): string {
 
 export function formatWIBDayLong(time: number): string {
   return wibDayLong.format(time)
+}
+
+export function formatWibDayKeyLong(dayKey: string): string {
+  return wibDayLong.format(Date.parse(`${dayKey}T12:00:00+07:00`))
+}
+
+export function formatWibDayKeyShort(dayKey: string): string {
+  return wibDayKeyShort.format(Date.parse(`${dayKey}T12:00:00+07:00`))
+}
+
+export function wibDayKeyToRange(dayKey: string): { start: number; end: number } {
+  const start = Date.parse(`${dayKey}T00:00:00+07:00`)
+  return { start, end: start + 86_400_000 }
 }
 
 export function formatUTCTime(time: number): string {

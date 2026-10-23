@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils'
 interface TrendChartProps {
   trend: TrendData
   loading?: boolean
+  dayActive?: boolean
 }
 
-export function TrendChart({ trend, loading }: TrendChartProps) {
+export function TrendChart({ trend, loading, dayActive = false }: TrendChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const { bins, mode, max } = trend
   const active = activeIndex === null ? null : bins[activeIndex]
@@ -51,7 +52,11 @@ export function TrendChart({ trend, loading }: TrendChartProps) {
       <div className="mb-2 flex items-end justify-between gap-3">
         <div>
           <div className="micro-label text-muted-foreground">
-            {mode === 'hour' ? 'Pola per jam · 24 jam' : 'Tren harian · WIB'}
+            {mode === 'hour'
+              ? dayActive
+                ? 'Pola per jam · harian'
+                : 'Pola per jam · 24 jam'
+              : 'Tren harian · WIB'}
           </div>
           <div className="mt-1 flex items-baseline gap-1.5">
             <span className="font-display text-[24px] leading-none text-ink">

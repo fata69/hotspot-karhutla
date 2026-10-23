@@ -10,6 +10,7 @@ interface HeaderProps {
   latestAcq: number | null
   fetchedAt: number | null
   loading: boolean
+  historical: boolean
   onRefresh: () => void
   onOpenLog: () => void
   onOpenMethodology: () => void
@@ -21,6 +22,7 @@ export function Header({
   latestAcq,
   fetchedAt,
   loading,
+  historical,
   onRefresh,
   onOpenLog,
   onOpenMethodology,
@@ -49,7 +51,7 @@ export function Header({
         <span className={cn('h-2 w-2 shrink-0 bg-ember', loading && 'animate-pulse')} />
         <div className="min-w-0">
           <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-paper/85">
-            Data langsung · NASA FIRMS
+            {historical ? 'Arsip harian · NASA FIRMS' : 'Data langsung · NASA FIRMS'}
           </div>
           <div className="mt-0.5 whitespace-nowrap font-mono text-[8.5px] uppercase tracking-[0.09em] text-paper/40">
             {fetchedAt ? `Sinkron ${formatWIBTime(fetchedAt)}` : 'Menghubungkan arsip satelit'}

@@ -6,6 +6,7 @@ Pemantauan titik panas karhutla Indonesia dari data satelit VIIRS NASA FIRMS, de
 
 - Peta sebaran titik panas terkunci di wilayah Indonesia — bisa zoom, tidak bisa digeser keluar scope.
 - Filter periode (24 jam, 48 jam, 72 jam, 7 hari), ambang FRP, keyakinan, dan satelit.
+- Mode harian: pilih tanggal untuk memuat ulang deteksi satu hari WIB sekaligus citra satelitnya.
 - Citra satelit true color NOAA-20 per hari dari NASA GIBS, atau peta dasar Esri.
 - Ringkasan, tren per jam/harian, peringkat provinsi, dan sorotan FRP tertinggi.
 - Log deteksi berhalaman dengan pencarian, pengurutan, dan ekspor CSV.

@@ -30,11 +30,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import {
   confidenceLabels,
   formatDecimal,
-  formatImageryDate,
   formatImageryDateShort,
   formatNumber,
   formatUtcDateKey,
+  formatWibDayKeyLong,
+  formatWibDayKeyShort,
   formatWIBDateTime,
+  getWibDayKeyFromNow,
   satelliteShort,
 } from '@/lib/format'
 import { getProvinceBBox, PROVINCE_GEOJSON, PROVINCE_LABEL_POINTS } from '@/lib/provinces'
@@ -59,12 +61,15 @@ interface MapPaneProps {
   hotspots: Hotspot[]
   selected: Hotspot | null
   activeProvince: string | null
+  selectedDay: string | null
+  periodLabel: string
   loading: boolean
   error: string | null
   focusSignal: number
   onSelect: (hotspot: Hotspot) => void
   onProvinceClick: (province: string) => void
   onClearSelection: () => void
+  onDayChange: (day: string | null) => void
   onRetry: () => void
 }
 
@@ -183,12 +188,15 @@ export function MapPane({
   hotspots,
   selected,
   activeProvince,
+  selectedDay,
+  periodLabel,
   loading,
   error,
   focusSignal,
   onSelect,
   onProvinceClick,
   onClearSelection,
+  onDayChange,
   onRetry,
 }: MapPaneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -199,9 +207,17 @@ export function MapPane({
   const firstFitRef = useRef(true)
   const [mapReady, setMapReady] = useState(false)
   const [basemap, setBasemap] = useState<Basemap>('satellite')
-  const [imageryDate, setImageryDate] = useState(() => imageryDateKey(1))
   const [dateOpen, setDateOpen] = useState(false)
   const [legendOpen, setLegendOpen] = useState(false)
+
+  const latestImageryDate = useMemo(() => imageryDateKey(1), [])
+  const oldestImageryDate = useMemo(() => imageryDateKey(IMAGERY_DAYS), [])
+  const imageryDate = useMemo(() => {
+    if (!selectedDay) return latestImageryDate
+    if (selectedDay > latestImageryDate) return latestImageryDate
+    if (selectedDay < oldestImageryDate) return oldestImageryDate
+    return selectedDay
+  }, [selectedDay, latestImageryDate, oldestImageryDate])
 
   const callbacksRef = useRef<MapCallbacks>({
     hotspotById: new Map(),
@@ -248,13 +264,13 @@ export function MapPane({
     [hotspots],
   )
 
-  const imageryDates = useMemo(
+  const dayOptions = useMemo(
     () =>
-      Array.from({ length: IMAGERY_DAYS }, (_, index) => {
-        const key = imageryDateKey(index + 1)
+      Array.from({ length: IMAGERY_DAYS - 1 }, (_, index) => {
+        const key = getWibDayKeyFromNow(index + 1)
         return {
           key,
-          full: formatImageryDate(key),
+          full: formatWibDayKeyLong(key),
           relative: index === 0 ? 'Kemarin' : `${index + 1} hari lalu`,
         }
       }),
@@ -790,9 +806,9 @@ export function MapPane({
     fitScope(map, activeProvince, 700)
   }
 
-  function chooseDate(date: string) {
-    setImageryDate(date)
-    setBasemap('satellite')
+  function chooseDay(day: string | null) {
+    onDayChange(day)
+    if (day) setBasemap('satellite')
     setDateOpen(false)
   }
 
@@ -831,61 +847,100 @@ export function MapPane({
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
-          {basemap === 'satellite' ? (
-            <Popover open={dateOpen} onOpenChange={setDateOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1.5 px-1.5 font-mono text-[8px] uppercase tracking-[0.06em]"
-                  aria-label="Pilih tanggal citra satelit"
-                >
-                  <CalendarDays className="h-3 w-3" />
-                  <span className="hidden sm:inline">{formatImageryDateShort(imageryDate)}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" sideOffset={6} className="w-64 p-0">
-                <div className="border-b border-rule px-3 py-2">
-                  <div className="micro-label text-ember">Citra dasar</div>
-                  <div className="mt-0.5 text-[11px] font-medium text-ink">True color NOAA-20</div>
-                </div>
+          <Popover open={dateOpen} onOpenChange={setDateOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  'h-7 gap-1.5 px-1.5 font-mono text-[8px] uppercase tracking-[0.06em]',
+                  selectedDay &&
+                    'border-ember bg-ember/[0.07] text-ember hover:bg-ember/[0.12] hover:text-ember',
+                )}
+                aria-label={
+                  selectedDay
+                    ? `Tanggal data ${formatWibDayKeyLong(selectedDay)}. Ganti tanggal`
+                    : 'Pilih tanggal data dan citra'
+                }
+                aria-pressed={selectedDay !== null}
+              >
+                <CalendarDays className="h-3 w-3" />
+                <span className="hidden sm:inline">
+                  {selectedDay ? formatWibDayKeyShort(selectedDay) : 'Tanggal'}
+                </span>
+                {selectedDay ? <span className="h-1 w-1 bg-ember" aria-hidden="true" /> : null}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" sideOffset={6} className="w-72 p-0">
+              <div className="flex items-start justify-between gap-3 border-b border-rule px-3 py-2">
                 <div>
-                  {imageryDates.map((item) => {
-                    const active = item.key === imageryDate
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => chooseDate(item.key)}
-                        className={cn(
-                          'flex w-full items-center justify-between gap-3 border-b border-rule/60 px-3 py-2 text-left transition-colors last:border-b-0',
-                          active ? 'bg-ink text-paper' : 'hover:bg-sand',
-                        )}
-                      >
-                        <span>
-                          <span className="block text-[11px] font-medium leading-tight">
-                            {item.relative}
-                          </span>
-                          <span
-                            className={cn(
-                              'mt-0.5 block font-mono text-[8px] uppercase tracking-[0.06em]',
-                              active ? 'text-paper/55' : 'text-muted-foreground',
-                            )}
-                          >
-                            {item.full} · UTC
-                          </span>
-                        </span>
-                        {active ? <Check className="h-3 w-3 shrink-0" /> : null}
-                      </button>
-                    )
-                  })}
+                  <div className="micro-label text-ember">Tanggal data</div>
+                  <div className="mt-0.5 text-[11px] font-medium text-ink">
+                    Hari pengamatan · WIB
+                  </div>
                 </div>
-                <p className="px-3 py-2 text-[9.5px] leading-relaxed text-muted-foreground">
-                  Komposit harian NASA GIBS. Awan dan asap dapat menutup sebagian wilayah.
-                </p>
-              </PopoverContent>
-            </Popover>
-          ) : null}
+                <span className="mt-0.5 border border-rule px-1 py-0.5 font-mono text-[7px] uppercase tracking-[0.06em] text-muted-foreground">
+                  UTC+7
+                </span>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => chooseDay(null)}
+                  className={cn(
+                    'flex w-full items-center justify-between gap-3 border-b border-rule px-3 py-2 text-left transition-colors',
+                    selectedDay === null ? 'bg-ink text-paper' : 'hover:bg-sand',
+                  )}
+                >
+                  <span>
+                    <span className="block text-[11px] font-medium leading-tight">Periode aktif</span>
+                    <span
+                      className={cn(
+                        'mt-0.5 block font-mono text-[8px] uppercase tracking-[0.06em]',
+                        selectedDay === null ? 'text-paper/55' : 'text-muted-foreground',
+                      )}
+                    >
+                      {periodLabel} · bergulir
+                    </span>
+                  </span>
+                  {selectedDay === null ? <Check className="h-3 w-3 shrink-0" /> : null}
+                </button>
+                {dayOptions.map((item) => {
+                  const active = item.key === selectedDay
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => chooseDay(item.key)}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-3 border-b border-rule/60 px-3 py-2 text-left transition-colors last:border-b-0',
+                        active ? 'bg-ink text-paper' : 'hover:bg-sand',
+                      )}
+                    >
+                      <span>
+                        <span className="block text-[11px] font-medium leading-tight">
+                          {item.relative}
+                        </span>
+                        <span
+                          className={cn(
+                            'mt-0.5 block font-mono text-[8px] uppercase tracking-[0.06em]',
+                            active ? 'text-paper/55' : 'text-muted-foreground',
+                          )}
+                        >
+                          {item.full} · WIB
+                        </span>
+                      </span>
+                      {active ? <Check className="h-3 w-3 shrink-0" /> : null}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="border-t border-rule px-3 py-2 text-[9.5px] leading-relaxed text-muted-foreground">
+                Deteksi dimuat untuk 00.00–23.59 WIB. Citra satelit memakai komposit UTC terdekat
+                dari NASA GIBS; awan dan asap dapat menutup sebagian wilayah.
+              </p>
+            </PopoverContent>
+          </Popover>
 
           <div className="flex overflow-hidden border border-rule" role="group" aria-label="Jenis peta dasar">
             <button
@@ -1084,14 +1139,31 @@ export function MapPane({
 
         {!loading && !error && !hasPoints ? (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-5">
-            <div className="max-w-[270px] border border-ink bg-paper-raised px-4 py-3 text-center hard-shadow">
-              <div className="micro-label text-ember">Filter kosong</div>
+            <div className="pointer-events-auto max-w-[280px] border border-ink bg-paper-raised px-4 py-3 text-center hard-shadow">
+              <div className="micro-label text-ember">
+                {selectedDay ? 'Hari kosong' : 'Filter kosong'}
+              </div>
               <p className="mt-1.5 font-display text-[23px] italic leading-tight text-ink">
-                Tidak ada titik panas.
+                {selectedDay
+                  ? `Tidak ada titik pada ${formatWibDayKeyShort(selectedDay)}.`
+                  : 'Tidak ada titik panas.'}
               </p>
               <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                Longgarkan periode, keyakinan, atau ambang FRP untuk memperluas pencarian.
+                {selectedDay
+                  ? 'Coba tanggal lain, longgarkan filter, atau kembali ke periode aktif.'
+                  : 'Longgarkan periode, keyakinan, atau ambang FRP untuk memperluas pencarian.'}
               </p>
+              {selectedDay ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2.5 w-full gap-1.5 font-mono text-[8px] uppercase tracking-[0.08em]"
+                  onClick={() => onDayChange(null)}
+                >
+                  <RotateCcw className="h-2.5 w-2.5" />
+                  Kembali ke periode
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : null}

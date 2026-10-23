@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, CalendarDays, RefreshCw, RotateCcw } from 'lucide-react'
 import { FilterPanel } from '@/components/filter-panel'
 import { PeriodPicker } from '@/components/period-picker'
 import { ProvinceList } from '@/components/province-list'
@@ -7,7 +7,7 @@ import { RailPager } from '@/components/rail-pager'
 import { Section } from '@/components/section'
 import { SummaryGrid } from '@/components/summary-grid'
 import { TrendChart } from '@/components/trend-chart'
-import { formatNumber } from '@/lib/format'
+import { formatNumber, formatWibDayKeyLong } from '@/lib/format'
 import type { ProvinceStats, SummaryStats, TrendData } from '@/lib/stats'
 import type { Confidence, HotspotFilters, SatelliteCode, TimeWindow } from '@/types'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,7 @@ const LEADING_PAGES = 2
 
 interface LeftRailProps {
   filters: HotspotFilters
+  selectedDay: string | null
   summary: SummaryStats
   trend: TrendData
   provinceStats: ProvinceStats[]
@@ -34,10 +35,12 @@ interface LeftRailProps {
   onToggleSatellite: (value: SatelliteCode) => void
   onResetFilters: () => void
   onProvinceSelect: (province: string | null) => void
+  onDayChange: (day: string | null) => void
 }
 
 export function LeftRail({
   filters,
+  selectedDay,
   summary,
   trend,
   provinceStats,
@@ -49,6 +52,7 @@ export function LeftRail({
   error,
   onRetry,
   className,
+  onDayChange,
   onWindowChange,
   onMinFrpChange,
   onToggleConfidence,
@@ -127,12 +131,49 @@ export function LeftRail({
             <Section
               index="01"
               title="Periode"
-              aside={filters.windowHours === 168 ? '7 hari' : `${filters.windowHours} jam`}
+              aside={
+                selectedDay
+                  ? 'Harian'
+                  : filters.windowHours === 168
+                    ? '7 hari'
+                    : `${filters.windowHours} jam`
+              }
             >
-              <PeriodPicker value={filters.windowHours} onChange={onWindowChange} />
-              <p className="mt-2 font-mono text-[8px] uppercase leading-relaxed tracking-[0.05em] text-muted-foreground">
-                Jendela deteksi berdasarkan jam sejak akuisisi satelit.
-              </p>
+              {selectedDay ? (
+                <>
+                  <div className="border border-ink bg-ink px-2.5 py-2.5 text-paper">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="micro-label text-paper/55">Mode harian · WIB</span>
+                      <CalendarDays className="h-3 w-3 shrink-0 text-ember" />
+                    </div>
+                    <div className="mt-1.5 font-display text-[22px] leading-[1.02] tracking-[-0.01em]">
+                      {formatWibDayKeyLong(selectedDay)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onDayChange(null)}
+                      className="mt-2 flex w-full items-center justify-between border-t border-paper/20 pt-1.5 font-mono text-[8px] uppercase tracking-[0.08em] text-paper/65 transition-colors hover:text-paper"
+                    >
+                      <span>
+                        Kembali ke{' '}
+                        {filters.windowHours === 168 ? '7 hari' : `${filters.windowHours} jam`}
+                      </span>
+                      <RotateCcw className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                  <p className="mt-2 font-mono text-[8px] uppercase leading-relaxed tracking-[0.05em] text-muted-foreground">
+                    Deteksi 00.00–23.59 WIB. Citra satelit mengikuti komposit UTC terdekat.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <PeriodPicker value={filters.windowHours} onChange={onWindowChange} />
+                  <p className="mt-2 font-mono text-[8px] uppercase leading-relaxed tracking-[0.05em] text-muted-foreground">
+                    Jendela deteksi berdasarkan jam sejak akuisisi satelit. Pilih tanggal pada peta
+                    untuk mode harian.
+                  </p>
+                </>
+              )}
             </Section>
 
             <Section index="02" title="Ringkasan" aside={activeProvince ?? 'Indonesia'} className="border-b-0">
@@ -174,8 +215,8 @@ export function LeftRail({
               />
             </Section>
 
-            <Section index="04" title="Pola deteksi" aside="WIB" className="border-b-0">
-              <TrendChart trend={trend} loading={loading} />
+            <Section index="04" title="Pola deteksi" aside={selectedDay ? 'Harian' : 'WIB'} className="border-b-0">
+              <TrendChart trend={trend} loading={loading} dayActive={selectedDay !== null} />
             </Section>
           </>
         ) : null}

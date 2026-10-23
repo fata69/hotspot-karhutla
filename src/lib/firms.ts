@@ -1,3 +1,4 @@
+import { wibDayKeyToRange } from '@/lib/format'
 import { findProvince } from '@/lib/provinces'
 import type {
   Confidence,
@@ -59,8 +60,22 @@ interface FirmsResponse {
   error?: { message?: string }
 }
 
-function buildWhere(filters: HotspotFilters): string {
-  const parts = [`hours_old <= ${filters.windowHours}`, `frp >= ${filters.minFrp}`]
+function sqlUtcTimestamp(time: number): string {
+  const date = new Date(time)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
+}
+
+function buildWhere(filters: HotspotFilters, dayKey: string | null): string {
+  const parts: string[] = []
+  if (dayKey) {
+    const { start, end } = wibDayKeyToRange(dayKey)
+    parts.push(`acq_time >= TIMESTAMP '${sqlUtcTimestamp(start)}'`)
+    parts.push(`acq_time < TIMESTAMP '${sqlUtcTimestamp(end)}'`)
+  } else {
+    parts.push(`hours_old <= ${filters.windowHours}`)
+  }
+  parts.push(`frp >= ${filters.minFrp}`)
   if (filters.confidences.length > 0) {
     parts.push(`confidence IN (${filters.confidences.map((value) => `'${value}'`).join(',')})`)
   } else {
@@ -74,10 +89,10 @@ function buildWhere(filters: HotspotFilters): string {
   return parts.join(' AND ')
 }
 
-function buildUrl(filters: HotspotFilters, offset: number): string {
+function buildUrl(filters: HotspotFilters, dayKey: string | null, offset: number): string {
   const params = new URLSearchParams({
     f: 'json',
-    where: buildWhere(filters),
+    where: buildWhere(filters, dayKey),
     geometry: INDONESIA_BBOX,
     geometryType: 'esriGeometryEnvelope',
     inSR: '4326',
@@ -107,10 +122,11 @@ function normalizeSatellite(value: string | null | undefined): SatelliteCode | n
 
 async function fetchPage(
   filters: HotspotFilters,
+  dayKey: string | null,
   offset: number,
   signal?: AbortSignal,
 ): Promise<FirmsResponse> {
-  const response = await fetch(buildUrl(filters, offset), {
+  const response = await fetch(buildUrl(filters, dayKey, offset), {
     signal,
     cache: 'no-store',
     headers: { Accept: 'application/json' },
@@ -127,6 +143,7 @@ async function fetchPage(
 
 export async function fetchHotspots(
   filters: HotspotFilters,
+  dayKey: string | null,
   signal?: AbortSignal,
 ): Promise<HotspotResult> {
   const hotspots: Hotspot[] = []
@@ -135,7 +152,7 @@ export async function fetchHotspots(
   let page = 0
 
   while (offset < MAX_POINTS) {
-    const payload = await fetchPage(filters, offset, signal)
+    const payload = await fetchPage(filters, dayKey, offset, signal)
     const features = payload.features ?? []
     if (features.length === 0) break
 

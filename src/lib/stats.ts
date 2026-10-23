@@ -96,8 +96,13 @@ export function computeProvinceStats(hotspots: Hotspot[]): ProvinceStats[] {
     .sort((a, b) => b.count - a.count || b.high - a.high || a.name.localeCompare(b.name, 'id'))
 }
 
-export function computeTrend(hotspots: Hotspot[], windowHours: TimeWindow, now = Date.now()): TrendData {
-  if (windowHours === 24) {
+export function computeTrend(
+  hotspots: Hotspot[],
+  windowHours: TimeWindow,
+  now = Date.now(),
+  dayKey: string | null = null,
+): TrendData {
+  if (dayKey || windowHours === 24) {
     const bins: TrendBin[] = Array.from({ length: 24 }, (_, hour) => ({
       key: String(hour),
       label: String(hour).padStart(2, '0'),
@@ -107,13 +112,13 @@ export function computeTrend(hotspots: Hotspot[], windowHours: TimeWindow, now =
       partial: false,
     }))
 
-    const currentHour = getWibHour(now)
     for (const hotspot of hotspots) {
+      if (dayKey && getWibDayKey(hotspot.acqTime) !== dayKey) continue
       const bin = bins[getWibHour(hotspot.acqTime)]
       bin.count += 1
       if (hotspot.confidence === 'high') bin.high += 1
     }
-    bins[currentHour].partial = true
+    if (!dayKey) bins[getWibHour(now)].partial = true
 
     const peak = bins.reduce((best, bin) => (bin.count > best.count ? bin : best), bins[0])
     return { bins, mode: 'hour', peak: peak.count, max: Math.max(...bins.map((bin) => bin.count)) }

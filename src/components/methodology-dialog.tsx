@@ -95,6 +95,12 @@ export function MethodologyDialog({ open, onOpenChange }: MethodologyDialogProps
               Tiga satelit dikonsolidasikan: NOAA-20, NOAA-21, dan Suomi NPP. Default tampilan
               memakai deteksi 24 jam dengan keyakinan tinggi dan nominal serta FRP minimal 10 MW.
             </p>
+            <p>
+              Pemilih tanggal memuat ulang deteksi untuk satu hari kalender WIB, yaitu 00.00–23.59
+              WIB, dan menampilkan citra satelit untuk tanggal tersebut. Pilihan{' '}
+              <strong className="font-semibold text-ink">Periode aktif</strong> mengembalikan
+              tampilan ke jendela waktu bergulir.
+            </p>
           </Block>
 
           <Block index="02" title="FRP: intensitas, bukan luas">
@@ -146,9 +152,13 @@ export function MethodologyDialog({ open, onOpenChange }: MethodologyDialogProps
             </p>
             <p>
               Gunakan mode <strong className="font-semibold text-ink">Peta</strong> untuk membaca
-              batas wilayah saat citra satelit tertutup awan. Peta terang memakai ubin Esri Light
-              Gray Canvas.
-              OpenStreetMap.
+              batas wilayah saat citra satelit tertutup awan. Mode ini memakai ubin Esri Light Gray
+              Canvas beserta lapisan rujukan nama tempat.
+            </p>
+            <p>
+              Tanggal citra mengikuti komposit harian UTC. Karena hari WIB dimulai tujuh jam lebih
+              awal, citra yang ditampilkan untuk sebuah tanggal bisa bergeser satu hari dari
+              kelompok deteksi. Legenda selalu menyebut tanggal citra yang sedang aktif.
             </p>
           </Block>
 
