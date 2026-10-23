@@ -1,4 +1,4 @@
-import { BookOpen, RefreshCw, Table2 } from 'lucide-react'
+import { BookOpen, Flame, RefreshCw, Table2 } from 'lucide-react'
 import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -34,7 +34,7 @@ export function Header({
         <BrandMark className="h-8 w-8 shrink-0 text-paper" />
         <div className="hidden min-w-0 min-[340px]:block">
           <div className="flex items-baseline gap-2.5">
-            <span className="truncate font-display text-[25px] leading-none tracking-[0.005em] text-paper">
+            <span className="truncate font-display text-[clamp(21px,6.1vw,25px)] leading-none tracking-[0.005em] text-paper">
               Posko Bara
             </span>
             <span className="hidden font-mono text-[8px] uppercase tracking-[0.18em] text-paper/40 sm:inline">
@@ -78,10 +78,12 @@ export function Header({
         <Button
           variant="inverseGhost"
           size="sm"
-          className="font-mono text-[9px] uppercase tracking-[0.1em] min-[1280px]:hidden"
+          className="px-2 font-mono text-[9px] uppercase tracking-[0.1em] min-[1280px]:hidden sm:px-3"
           onClick={onOpenHighlights}
+          aria-label="Buka sorotan titik panas"
         >
-          Sorotan
+          <Flame className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Sorotan</span>
         </Button>
         <Button
           variant="inverse"

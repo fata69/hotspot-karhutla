@@ -39,9 +39,9 @@
   --color-olive: var(--olive);
   --color-sand: var(--sand);
 
-  --font-sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  --font-sans: "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
 
   --radius-sm: 0px;
   --radius-md: 0px;
@@ -163,6 +163,10 @@ body::after {
   letter-spacing: 0.13em;
   line-height: 1.2;
   text-transform: uppercase;
+}
+
+.font-display {
+  font-weight: 600;
 }
 
 .hard-shadow {

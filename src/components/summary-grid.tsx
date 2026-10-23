@@ -19,12 +19,12 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
   return (
     <div aria-live="polite">
       <div className="grid grid-cols-2 border-l border-t border-rule">
-        <div className="min-h-[82px] border-b border-r border-rule p-2.5">
+        <div className="@container min-h-[82px] border-b border-r border-rule p-2.5">
           <div className="micro-label text-muted-foreground">Titik panas</div>
           {loading ? (
             <ValueSkeleton />
           ) : (
-            <div className="mt-1.5 font-sans text-[29px] font-semibold leading-none tracking-[-0.03em] text-ink">
+            <div className="mt-1.5 font-sans text-[clamp(24px,25.5cqw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
               {formatNumber(summary.total)}
             </div>
           )}
@@ -33,16 +33,16 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
           </div>
         </div>
 
-        <div className="min-h-[82px] border-b border-r border-rule p-2.5">
-          <div className="micro-label text-muted-foreground">Total FRP</div>
+        <div className="@container min-h-[82px] border-b border-r border-rule p-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="micro-label text-muted-foreground">Total FRP</div>
+            <span className="font-mono text-[8px] uppercase leading-none text-muted-foreground">MW</span>
+          </div>
           {loading ? (
             <ValueSkeleton />
           ) : (
-            <div className="mt-1.5 flex items-baseline gap-1">
-              <span className="font-sans text-[29px] font-semibold leading-none tracking-[-0.03em] text-ink">
-                {formatCompact(summary.frpTotal)}
-              </span>
-              <span className="font-mono text-[8px] uppercase text-muted-foreground">MW</span>
+            <div className="mt-1.5 font-sans text-[clamp(24px,25.5cqw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
+              {formatCompact(summary.frpTotal)}
             </div>
           )}
           <div className="mt-1.5 font-mono text-[8px] uppercase tracking-[0.05em] text-muted-foreground">
@@ -52,12 +52,12 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
           </div>
         </div>
 
-        <div className="min-h-[82px] border-b border-r border-rule p-2.5">
+        <div className="@container min-h-[82px] border-b border-r border-rule p-2.5">
           <div className="micro-label text-muted-foreground">Keyakinan tinggi</div>
           {loading ? (
             <ValueSkeleton />
           ) : (
-            <div className="mt-1.5 font-sans text-[29px] font-semibold leading-none tracking-[-0.03em] text-ink">
+            <div className="mt-1.5 font-sans text-[clamp(24px,25.5cqw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
               {formatNumber(summary.high)}
             </div>
           )}
