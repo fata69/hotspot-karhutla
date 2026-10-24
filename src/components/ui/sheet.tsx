@@ -67,7 +67,7 @@ const SheetContent = React.forwardRef<
       {...props}
     >
       {hideClose ? null : (
-        <SheetPrimitive.Close className="absolute right-4 top-4 z-10 border border-rule p-1.5 text-ink-soft transition-colors hover:border-ink hover:bg-ink hover:text-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none">
+        <SheetPrimitive.Close className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center border border-rule text-ink-soft transition-colors hover:border-ink hover:bg-ink hover:text-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none sm:h-8 sm:w-8">
           <X className="h-3.5 w-3.5" />
           <span className="sr-only">Tutup</span>
         </SheetPrimitive.Close>

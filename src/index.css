@@ -169,6 +169,22 @@ body::after {
   font-weight: 600;
 }
 
+.map-stage {
+  height: clamp(390px, 64vh, 560px);
+}
+
+@supports (height: 100svh) {
+  .map-stage {
+    height: clamp(390px, 64svh, 560px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .map-stage {
+    height: auto;
+  }
+}
+
 .hard-shadow {
   box-shadow: 3px 3px 0 rgba(25, 24, 17, 0.14);
 }

@@ -11,7 +11,7 @@ interface RailPagerProps {
 }
 
 const buttonClass =
-  'flex h-8 w-8 shrink-0 items-center justify-center border border-transparent text-ink-soft transition-colors hover:border-ink hover:bg-ink hover:text-paper disabled:pointer-events-none disabled:opacity-25'
+  'flex h-10 w-10 shrink-0 items-center justify-center border border-transparent text-ink-soft transition-colors hover:border-ink hover:bg-ink hover:text-paper disabled:pointer-events-none disabled:opacity-25 lg:h-8 lg:w-8'
 
 export function RailPager({ page, total, label, onPrev, onNext, className }: RailPagerProps) {
   const atStart = page <= 0
@@ -20,7 +20,7 @@ export function RailPager({ page, total, label, onPrev, onNext, className }: Rai
   return (
     <div
       className={cn(
-        'flex h-10 shrink-0 items-center gap-1.5 border-t border-rule bg-paper-raised px-2',
+        'flex h-12 shrink-0 items-center gap-1.5 border-t border-rule bg-paper-raised px-2 lg:h-10',
         className,
       )}
     >

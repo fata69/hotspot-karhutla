@@ -111,7 +111,7 @@ export function LeftRail({
       )}
       onKeyDown={handleKeyDown}
     >
-      <div className="flex h-8 shrink-0 items-center justify-between border-b border-rule bg-paper-raised pr-4">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-rule bg-paper-raised pr-4 lg:h-8">
         <nav className="flex h-full items-stretch pl-2" aria-label="Bagian lembar pantau">
           {tabs.map((tab) => (
             <button
@@ -123,7 +123,7 @@ export function LeftRail({
               }}
               aria-current={tab.active ? 'page' : undefined}
               className={cn(
-                'relative flex items-center px-2 font-mono text-[8px] uppercase tracking-[0.12em] transition-colors',
+                'relative flex items-center px-2.5 font-mono text-[9px] uppercase tracking-[0.12em] transition-colors lg:px-2 lg:text-[8px]',
                 tab.active ? 'text-ink' : 'text-muted-foreground hover:text-ink',
               )}
             >

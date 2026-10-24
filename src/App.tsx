@@ -248,7 +248,7 @@ export default function App() {
             onOpenDate={() => setDateSignal((value) => value + 1)}
           />
 
-          <main className="relative order-1 h-[calc(100svh-4rem)] min-h-[420px] lg:order-none lg:h-auto lg:min-h-0">
+          <main className="map-stage relative order-1 lg:order-none">
             <MapPane
               hotspots={scopedHotspots}
               selected={selected}

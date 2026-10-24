@@ -30,11 +30,11 @@ export function Header({
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-4 border-b-2 border-ember bg-ink px-4 text-paper sm:px-5">
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <BrandMark className="h-8 w-8 shrink-0 text-paper" />
-        <div className="hidden min-w-0 min-[340px]:block">
+        <div className="min-w-0">
           <div className="flex items-baseline gap-2.5">
-            <span className="truncate font-display text-[clamp(21px,6.1vw,25px)] leading-none tracking-[0.005em] text-paper">
+            <span className="truncate font-display text-[clamp(18px,5.6vw,25px)] leading-none tracking-[0.005em] text-paper">
               Posko Bara
             </span>
             <span className="hidden font-mono text-[8px] uppercase tracking-[0.18em] text-paper/40 sm:inline">

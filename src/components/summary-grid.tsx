@@ -19,12 +19,12 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
   return (
     <div aria-live="polite">
       <div className="grid grid-cols-2 border-l border-t border-rule">
-        <div className="@container min-h-[82px] border-b border-r border-rule p-2.5">
+        <div className="min-h-[82px] border-b border-r border-rule p-2.5">
           <div className="micro-label text-muted-foreground">Titik panas</div>
           {loading ? (
             <ValueSkeleton />
           ) : (
-            <div className="mt-1.5 font-sans text-[clamp(24px,25.5cqw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
+            <div className="mt-1.5 font-sans text-[clamp(24px,7vw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
               {formatNumber(summary.total)}
             </div>
           )}
@@ -33,7 +33,7 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
           </div>
         </div>
 
-        <div className="@container min-h-[82px] border-b border-r border-rule p-2.5">
+        <div className="min-h-[82px] border-b border-r border-rule p-2.5">
           <div className="flex items-center justify-between gap-2">
             <div className="micro-label text-muted-foreground">Total FRP</div>
             <span className="font-mono text-[8px] uppercase leading-none text-muted-foreground">MW</span>
@@ -41,7 +41,7 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
           {loading ? (
             <ValueSkeleton />
           ) : (
-            <div className="mt-1.5 font-sans text-[clamp(24px,25.5cqw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
+            <div className="mt-1.5 font-sans text-[clamp(24px,7vw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
               {formatCompact(summary.frpTotal)}
             </div>
           )}
@@ -52,12 +52,12 @@ export function SummaryGrid({ summary, loading, latestAcq, provinceScope }: Summ
           </div>
         </div>
 
-        <div className="@container min-h-[82px] border-b border-r border-rule p-2.5">
+        <div className="min-h-[82px] border-b border-r border-rule p-2.5">
           <div className="micro-label text-muted-foreground">Keyakinan tinggi</div>
           {loading ? (
             <ValueSkeleton />
           ) : (
-            <div className="mt-1.5 font-sans text-[clamp(24px,25.5cqw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
+            <div className="mt-1.5 font-sans text-[clamp(24px,7vw,29px)] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
               {formatNumber(summary.high)}
             </div>
           )}

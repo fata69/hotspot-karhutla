@@ -51,8 +51,8 @@ setWorkerUrl(maplibreWorkerUrl)
 
 const GLYPHS = 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
 const INDONESIA_BOUNDS: [[number, number], [number, number]] = [
-  [94.5, -11.5],
-  [141.5, 6.3],
+  [94, -11.5],
+  [142, 6.5],
 ]
 // Center may drift slightly during zoom, but never away from Indonesian territory.
 const CENTER_BOUNDS = { west: 95.6, east: 140.4, south: -10.6, north: 5.6 }
@@ -189,6 +189,12 @@ function fitScope(
       )
     }
     return
+  }
+  // The fit zoom can sit below the old floor on narrow screens, so lower the floor
+  // to the country view instead of clamping the camera and cropping the archipelago.
+  const fitted = map.cameraForBounds(INDONESIA_BOUNDS, { padding: 28 })
+  if (typeof fitted?.zoom === 'number') {
+    map.setMinZoom(Math.max(1.2, fitted.zoom - 0.12))
   }
   map.fitBounds(INDONESIA_BOUNDS, { padding: 28, duration })
 }
@@ -731,7 +737,7 @@ export function MapPane({
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
         cluster: true,
-        clusterRadius: 46,
+        clusterRadius: map.getContainer().clientWidth < 480 ? 32 : 46,
         clusterMaxZoom: 9,
       })
       map.addLayer({
