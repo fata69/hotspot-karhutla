@@ -147,8 +147,10 @@ export function MethodologyDialog({ open, onOpenChange }: MethodologyDialogProps
           <Block index="04" title="Citra dasar satelit">
             <p>
               Peta default memakai komposit true color harian <strong className="font-semibold text-ink">NOAA-20</strong>{' '}
-              dari NASA GIBS. Tersedia delapan tanggal terakhir hingga kemarin menurut UTC. Awan,
-              asap, dan sudut perekaman dapat menutup sebagian besar citra, terutama di musim hujan.
+              dari NASA GIBS. Tersedia delapan tanggal terakhir hingga kemarin menurut UTC, dan
+              citra diperbarui sekali sehari — bukan liputan real-time. Resolusi sumbernya sekitar
+              250 m, jadi tampilan akan melembut saat diperbesar. Awan, asap, dan sudut perekaman
+              dapat menutup sebagian besar citra, terutama di musim hujan.
             </p>
             <p>
               Gunakan mode <strong className="font-semibold text-ink">Peta</strong> untuk membaca

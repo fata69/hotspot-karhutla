@@ -213,7 +213,7 @@ export function FieldNotesPanel({
           <div className="flex items-center justify-between gap-3 py-1.5">
             <dt className="font-mono text-[8px] uppercase tracking-[0.06em] text-muted-foreground">Citra dasar</dt>
             <dd className="text-right font-mono text-[8px] uppercase tracking-[0.04em] text-ink-soft">
-              NASA GIBS · NOAA-20
+              NASA GIBS · NOAA-20 · harian
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 py-1.5">

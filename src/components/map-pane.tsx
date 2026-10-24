@@ -57,6 +57,10 @@ const INDONESIA_BOUNDS: [[number, number], [number, number]] = [
 // Center may drift slightly during zoom, but never away from Indonesian territory.
 const CENTER_BOUNDS = { west: 95.6, east: 140.4, south: -10.6, north: 5.6 }
 const IMAGERY_DAYS = 8
+// GIBS true color tops out at tile level 9 (256 px). Past zoom 10 each source pixel
+// stretches across 4 CSS pixels, so the overview cap keeps the imagery legible.
+const SATELLITE_MAX_ZOOM = 10
+const BASEMAP_MAX_ZOOM = 12
 
 type Basemap = 'satellite' | 'light'
 type MapClickEvent = MapEventType['click']
@@ -396,7 +400,7 @@ export function MapPane({
       center: [118.3, -2.4],
       zoom: 3.6,
       minZoom: 3.2,
-      maxZoom: 12,
+      maxZoom: BASEMAP_MAX_ZOOM,
       dragPan: false,
       dragRotate: false,
       keyboard: false,
@@ -595,7 +599,12 @@ export function MapPane({
         id: 'base-satellite',
         type: 'raster',
         source: 'base-satellite',
-        paint: { 'raster-opacity': 1, 'raster-fade-duration': 150 },
+        paint: {
+          'raster-opacity': 1,
+          'raster-fade-duration': 150,
+          'raster-contrast': 0.1,
+          'raster-saturation': 0.05,
+        },
       })
 
       map.addSource('base-light', {
@@ -897,6 +906,11 @@ export function MapPane({
     const map = mapRef.current
     if (!map) return
     const satellite = basemap === 'satellite'
+    const maxZoom = satellite ? SATELLITE_MAX_ZOOM : BASEMAP_MAX_ZOOM
+    map.setMaxZoom(maxZoom)
+    if (map.getZoom() > maxZoom) {
+      map.easeTo({ zoom: maxZoom, duration: 420, essential: true })
+    }
     map.setLayoutProperty('base-satellite', 'visibility', satellite ? 'visible' : 'none')
     map.setLayoutProperty('base-light', 'visibility', satellite ? 'none' : 'visible')
     map.setLayoutProperty('base-light-ref', 'visibility', satellite ? 'none' : 'visible')
@@ -1123,8 +1137,9 @@ export function MapPane({
                 })}
               </div>
               <p className="border-t border-rule px-3 py-2 text-[9.5px] leading-relaxed text-muted-foreground">
-                Deteksi dimuat untuk 00.00–23.59 WIB. Citra satelit memakai komposit UTC terdekat
-                dari NASA GIBS; awan dan asap dapat menutup sebagian wilayah.
+                Deteksi dimuat untuk 00.00–23.59 WIB. Citra satelit memakai komposit harian UTC
+                dari NASA GIBS (diperbarui sekali sehari); awan dan asap dapat menutup sebagian
+                wilayah.
               </p>
             </PopoverContent>
           </Popover>
@@ -1267,7 +1282,7 @@ export function MapPane({
           >
             <LoaderCircle className="h-3 w-3 animate-spin text-ember" />
             <span className="whitespace-nowrap font-mono text-[8px] uppercase tracking-[0.08em] text-ink-soft">
-              Memuat citra {formatImageryDateShort(imageryDate)}
+              Memuat citra harian {formatImageryDateShort(imageryDate)}
             </span>
           </div>
         ) : null}
@@ -1486,7 +1501,7 @@ export function MapPane({
               ) : (
                 <Satellite className="h-2.5 w-2.5" />
               )}
-              <span className="tabular-nums">Citra {formatImageryDateShort(imageryDate)}</span>
+              <span className="tabular-nums">Harian {formatImageryDateShort(imageryDate)}</span>
               <span className="hidden sm:inline">· NOAA-20</span>
             </>
           ) : (
@@ -1607,8 +1622,9 @@ export function MapPane({
             <div className="border-t border-rule pt-3">
               <div className="micro-label mb-2 text-muted-foreground">Tanggal data & citra</div>
               <p className="text-[10px] leading-relaxed text-muted-foreground">
-                Citra {formatImageryDateShort(imageryDate)} · NOAA-20. Tanggal data mengikuti pilihan
-                harian pada peta.
+                Komposit harian NOAA-20 (~250 m) untuk {formatImageryDateShort(imageryDate)}.
+                Diperbarui sekali sehari, jadi bukan citra real-time; awan dan asap dapat menutup
+                permukaan. Tanggal mengikuti pilihan harian pada peta.
               </p>
               <Button
                 variant="outline"

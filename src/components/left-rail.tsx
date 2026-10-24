@@ -202,7 +202,7 @@ export function LeftRail({
                     </button>
                   </div>
                   <p className="mt-2 font-mono text-[8px] uppercase leading-relaxed tracking-[0.05em] text-muted-foreground">
-                    Deteksi 00.00–23.59 WIB. Citra satelit mengikuti komposit UTC terdekat.
+                    Deteksi 00.00–23.59 WIB. Citra satelit mengikuti komposit harian UTC terdekat.
                   </p>
                 </>
               ) : (
